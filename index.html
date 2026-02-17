@@ -77,6 +77,40 @@
             z-index: 100;
         }
 
+        .mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 100;
+        }
+
+        .mobile-btn {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(0, 100, 255, 0.7);
+            border: 2px solid white;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: background-color 0.2s;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+        }
+
+        .mobile-btn:active {
+            background-color: rgba(0, 150, 255, 0.9);
+            transform: scale(0.95);
+        }
+
         .hidden {
             display: none !important;
         }
@@ -97,6 +131,14 @@
         <canvas id="screen" width="1000" height="680"></canvas>
         <div id="musicToggle">🔊</div>
         <div id="instructionText"></div>
+        <div class="mobile-controls" id="mobileControls">
+            <button class="mobile-btn" id="btnUp">⬆️</button>
+            <div style="display: flex; gap: 15px;">
+                <button class="mobile-btn" id="btnLeft">⬅️</button>
+                <button class="mobile-btn" id="btnDown">⬇️</button>
+                <button class="mobile-btn" id="btnRight">➡️</button>
+            </div>
+        </div>
     </div>
 
     <!-- Audio elements -->
@@ -112,7 +154,6 @@
     <audio id="soundDoor">
         <source src="sound_door.ogg" type="audio/ogg">
     </audio>
-
     <!-- Image elements -->
     <img id="wallImg" src="Blocks.jpg" style="display:none;">
     <img id="creperImg" src="end_pearl.jpg" style="display:none;">
@@ -120,7 +161,6 @@
     <img id="doorImg" src="door.jpg" style="display:none;">
     <img id="bgImage" src="maze.jpg" style="display:none;">
     <img id="bgImage3" src="maze_3.jpg" style="display:none;">
-    
     <!-- Player animation frames -->
     <img id="player1" src="1.jpg" style="display:none;">
     <img id="player2" src="2.jpg" style="display:none;">
@@ -269,34 +309,30 @@
         }
 
         function drawGameElements() {
-            // Draw door
-            const doorImg = document.getElementById('doorImg');
-            if (doorImg.complete && doorImg.naturalHeight !== 0) {
-                ctx.drawImage(doorImg, doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            } else {
-                ctx.fillStyle = '#00ff00';
-                ctx.fillRect(doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            }
+            // Draw door (без фону - тільки малюємо)
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
 
-            // Draw key if not collected
+            // Draw key if not collected (без фону)
             if (!keyExists) {
-                const keyImg = document.getElementById('keyImg');
-                if (keyImg.complete && keyImg.naturalHeight !== 0) {
-                    ctx.drawImage(keyImg, keyPosition[0] * CELL_SIZE, keyPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-                } else {
-                    ctx.fillStyle = '#ffff00';
-                    ctx.fillRect(keyPosition[0] * CELL_SIZE, keyPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-                }
+                ctx.fillStyle = '#ffff00';
+                ctx.beginPath();
+                ctx.arc(keyPosition[0] * CELL_SIZE + CELL_SIZE / 2, keyPosition[1] * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE / 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
             }
 
-            // Draw creeper
-            const creperImg = document.getElementById('creperImg');
-            if (creperImg.complete && creperImg.naturalHeight !== 0) {
-                ctx.drawImage(creperImg, creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            } else {
-                ctx.fillStyle = '#ff66ff';
-                ctx.fillRect(creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            }
+            // Draw creeper (без фону - тільки малюємо)
+            ctx.fillStyle = '#ff66ff';
+            ctx.fillRect(creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
 
             // Draw player
             const playerImg = playerImages[playerAnimationIndex % playerImages.length];
@@ -368,6 +404,31 @@
             }
         });
 
+        // Mobile controls
+        function movePlayer(direction) {
+            if (gameState !== 'level1' && gameState !== 'level2') return;
+            
+            if (direction === 'up' && playerY > 0 && currentMaze[playerY - 1][playerX] === 0) {
+                playerY--;
+            } else if (direction === 'down' && playerY < currentMaze.length - 1 && currentMaze[playerY + 1][playerX] === 0) {
+                playerY++;
+            } else if (direction === 'left' && playerX > 0 && currentMaze[playerY][playerX - 1] === 0) {
+                playerX--;
+            } else if (direction === 'right' && playerX < currentMaze[0].length - 1 && currentMaze[playerY][playerX + 1] === 0) {
+                playerX++;
+            }
+        }
+
+        document.getElementById('btnUp').addEventListener('touchstart', (e) => { e.preventDefault(); movePlayer('up'); });
+        document.getElementById('btnDown').addEventListener('touchstart', (e) => { e.preventDefault(); movePlayer('down'); });
+        document.getElementById('btnLeft').addEventListener('touchstart', (e) => { e.preventDefault(); movePlayer('left'); });
+        document.getElementById('btnRight').addEventListener('touchstart', (e) => { e.preventDefault(); movePlayer('right'); });
+
+        document.getElementById('btnUp').addEventListener('mousedown', () => movePlayer('up'));
+        document.getElementById('btnDown').addEventListener('mousedown', () => movePlayer('down'));
+        document.getElementById('btnLeft').addEventListener('mousedown', () => movePlayer('left'));
+        document.getElementById('btnRight').addEventListener('mousedown', () => movePlayer('right'));
+
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const x = (e.clientX - rect.left) * (canvas.width / rect.width);
@@ -423,7 +484,7 @@
             ctx.fillStyle = BACKGROUND_COLOR;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const bgImg = document.getElementById('bgImage3');
+            const bgImg = document.getElementById('bgImage');
             if (bgImg.complete && bgImg.naturalHeight !== 0) {
                 ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
             }
