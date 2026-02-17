@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Втеча з лабіринту</title>
+<style>
+  body { margin:0; overflow:hidden; background:black; }
+  canvas { display:block; margin:0 auto; background-color:black; }
+  #menu, #howplay, #winScreen {
+    position:absolute; top:0; left:0;
+    width:100%; height:100%;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background-color:rgba(0,0,0,0.8);
+    color:white; font-family:Arial,sans-serif;
+  }
+  button { font-size:24px; padding:20px 50px; margin:20px; cursor:pointer; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="1000" height="680"></canvas>
+
+<div id="menu">
+  <button id="startBtn">Почати гру</button>
+  <button id="howBtn">Як грати</button>
+  <button id="exitBtn">Вийти</button>
+</div>
+
+<div id="howplay" style="display:none;">
+  <div style="margin-bottom:50px;">
+    <p>Як грати в лабіринт:</p>
+    <p>щоб ходити, треба натискати на стрілочки ↑ ↓ ← →</p>
+    <p>Знайди кнопку, щоб вийти з лабіринту.</p>
+    <p>Око ендермена перемістить тебе рандомно!</p>
+    <p>Підбав звук, щоб було цікавіше грати.</p>
+  </div>
+  <button id="backMenu">На головний екран</button>
+  <button id="exitBtn2">Вийти</button>
+</div>
+
+<div id="winScreen" style="display:none;">
+  <button id="winBtn">Вітаю! Ти пройшов гру!</button>
+  <button id="exitBtn3">Вийти</button>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const cellSize = 40;
+
+let playerImg = [];
+let wallImg = new Image();
+let doorImg = new Image();
+let keyImg = new Image();
+let creperImg = new Image();
+let backgroundImg = new Image();
+
+let playerId = 0;
+let keys = {};
+
+// Перший рівень
+let mazeLevels = [];
+mazeLevels[0] = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
+  [1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,0,1,1,1,1,0,1],
+  [1,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1,1,1,0,1],
+  [1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,0,0,1],
+  [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1],
+  [1,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1,1,0,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,1,1,1],
+  [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,0,1,1,0,1,1,1],
+  [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,1,1],
+  [1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,0,1,1],
+  [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1],
+  [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1],
+  [1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,1,1],
+  [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+// Другий рівень
+mazeLevels[1] = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,1,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
+  [1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,0,1,1,1,1,0,1],
+  [1,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1,1,1,0,1],
+  [1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,0,0,1],
+  [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1],
+  [1,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1,1,0,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,1,1,1],
+  [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,0,1,1,0,1,1,1],
+  [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,1,1],
+  [1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,0,1,1],
+  [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1],
+  [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1],
+  [1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,1,1],
+  [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+let currentLevel = 0;
+let playerXLevel = 1, playerYLevel = 1;
+let keyExistsLevel = false;
+let freeCellsLevel = [];
+
+function getFreeCells(m){ 
+  let free = [];
+  for(let y=0;y<m.length;y++){
+    for(let x=0;x<m[0].length;x++){
+      if(m[y][x]===0) free.push([x,y]);
+    }
+  }
+  return free;
+}
+
+let keyPositionLevel, doorPositionLevel, creperPositionLevel;
+
+function initLevel(level){
+  let maze = mazeLevels[level];
+  freeCellsLevel = getFreeCells(maze);
+  keyExistsLevel = false;
+  keyPositionLevel = freeCellsLevel[Math.floor(Math.random()* (freeCellsLevel.length-1))];
+  doorPositionLevel = freeCellsLevel[freeCellsLevel.length-1];
+  creperPositionLevel = freeCellsLevel[Math.floor(Math.random()*freeCellsLevel.length)];
+  playerXLevel = 1; playerYLevel = 1;
+}
+
+// Контроль клавіш
+document.addEventListener('keydown', e=>keys[e.key]=true);
+document.addEventListener('keyup', e=>keys[e.key]=false);
+
+// Головний цикл рівня
+function gameLoopLevel(){
+  let maze = mazeLevels[currentLevel];
+  if(keys['ArrowLeft'] && playerXLevel>0 && maze[playerYLevel][playerXLevel-1]===0) playerXLevel--;
+  if(keys['ArrowRight'] && playerXLevel<maze[0].length-1 && maze[playerYLevel][playerXLevel+1]===0) playerXLevel++;
+  if(keys['ArrowUp'] && playerYLevel>0 && maze[playerYLevel-1][playerXLevel]===0) playerYLevel--;
+  if(keys['ArrowDown'] && playerYLevel<maze.length-1 && maze[playerYLevel+1][playerXLevel]===0) playerYLevel++;
+
+  // Око ендермена
+  if(playerXLevel===creperPositionLevel[0] && playerYLevel===creperPositionLevel[1]){
+    let r = freeCellsLevel[Math.floor(Math.random()*freeCellsLevel.length)];
+    playerXLevel = r[0]; playerYLevel = r[1];
+    soundPearl.play();
+  }
+
+  // Ключ
+  if(!keyExistsLevel){
+    if(playerXLevel===keyPositionLevel[0] && playerYLevel===keyPositionLevel[1]){
+      keyExistsLevel = true;
+      soundKey.play();
+    }
+  }
+
+  // Двері
+  if(keyExistsLevel && playerXLevel===doorPositionLevel[0] && playerYLevel===doorPositionLevel[1]){
+    soundDoor.play();
+    currentLevel++;
+    if(currentLevel>=mazeLevels.length){
+      showWinScreen();
+      return;
+    } else {
+      initLevel(currentLevel);
+    }
+  }
+
+  drawLevel();
+  requestAnimationFrame(gameLoopLevel);
+}
+
+function drawLevel(){
+  let maze = mazeLevels[currentLevel];
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<maze.length;y++){
+    for(let x=0;x<maze[0].length;x++){
+      if(maze[y][x]===1){
+        ctx.drawImage(wallImg,x*cellSize,y*cellSize,cellSize,cellSize);
+      }
+    }
+  }
+  if(!keyExistsLevel) ctx.drawImage(keyImg,keyPositionLevel[0]*cellSize,keyPositionLevel[1]*cellSize,cellSize,cellSize);
+  ctx.drawImage(doorImg,doorPositionLevel[0]*cellSize,doorPositionLevel[1]*cellSize,cellSize,cellSize);
+  ctx.drawImage(creperImg,creperPositionLevel[0]*cellSize,creperPositionLevel[1]*cellSize,cellSize,cellSize);
+  ctx.drawImage(playerImg[playerId],playerXLevel*cellSize,playerYLevel*cellSize,cellSize,cellSize);
+  playerId = (playerId+1)%playerImg.length;
+}
+
+// Меню
+document.getElementById('startBtn').onclick = ()=>{
+  document.getElementById('menu').style.display='none';
+  currentLevel=0;
+  initLevel(currentLevel);
+  gameLoopLevel();
+};
+document.getElementById('howBtn').onclick = ()=>{
+  document.getElementById('menu').style.display='none';
+  document.getElementById('howplay').style.display='flex';
+};
+document.getElementById('backMenu').onclick = ()=>{
+  document.getElementById('howplay').style.display='none';
+  document.getElementById('menu').style.display='flex';
+};
+document.getElementById('exitBtn').onclick = ()=>window.close();
+document.getElementById('exitBtn2').onclick = ()=>window.close();
+document.getElementById('exitBtn3').onclick = ()=>window.close();
+
+function showWinScreen(){
+  document.getElementById('winScreen').style.display='flex';
+}
+</script>
+</body>
+</html>
