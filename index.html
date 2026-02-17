@@ -309,30 +309,34 @@
         }
 
         function drawGameElements() {
-            // Draw door (без фону - тільки малюємо)
-            ctx.fillStyle = '#00ff00';
-            ctx.fillRect(doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-
-            // Draw key if not collected (без фону)
-            if (!keyExists) {
-                ctx.fillStyle = '#ffff00';
-                ctx.beginPath();
-                ctx.arc(keyPosition[0] * CELL_SIZE + CELL_SIZE / 2, keyPosition[1] * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE / 3, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.stroke();
+            // Draw door
+            const doorImg = document.getElementById('doorImg');
+            if (doorImg.complete && doorImg.naturalHeight !== 0) {
+                ctx.drawImage(doorImg, doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            } else {
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
             }
 
-            // Draw creeper (без фону - тільки малюємо)
-            ctx.fillStyle = '#ff66ff';
-            ctx.fillRect(creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            // Draw key if not collected
+            if (!keyExists) {
+                const keyImg = document.getElementById('keyImg');
+                if (keyImg.complete && keyImg.naturalHeight !== 0) {
+                    ctx.drawImage(keyImg, keyPosition[0] * CELL_SIZE, keyPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                } else {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fillRect(keyPosition[0] * CELL_SIZE, keyPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                }
+            }
+
+            // Draw creeper
+            const creperImg = document.getElementById('creperImg');
+            if (creperImg.complete && creperImg.naturalHeight !== 0) {
+                ctx.drawImage(creperImg, creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            } else {
+                ctx.fillStyle = '#ff66ff';
+                ctx.fillRect(creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
 
             // Draw player
             const playerImg = playerImages[playerAnimationIndex % playerImages.length];
