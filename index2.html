@@ -1,213 +1,516 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-<meta charset="UTF-8">
-<title>Втеча з лабіринту</title>
-<style>
-  body { margin:0; overflow:hidden; background:black; }
-  canvas { display:block; margin:0 auto; background-color:black; }
-  #menu, #howplay, #winScreen {
-    position:absolute; top:0; left:0;
-    width:100%; height:100%;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    background-color:rgba(0,0,0,0.8);
-    color:white; font-family:Arial,sans-serif;
-  }
-  button { font-size:24px; padding:20px 50px; margin:20px; cursor:pointer; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Втеча з лабіринту</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #000;
+            color: #fff;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100%;
+            max-width: 1000px;
+            height: 680px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+        }
+
+        #screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .button {
+            position: absolute;
+            cursor: pointer;
+            font-size: 24px;
+            font-weight: bold;
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s;
+        }
+
+        .button:hover {
+            opacity: 0.8;
+        }
+
+        #musicToggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(100, 100, 100, 0.7);
+            border: 2px solid white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #instructionText {
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            color: white;
+            font-size: 20px;
+            line-height: 1.8;
+            max-width: 900px;
+        }
+    </style>
 </head>
 <body>
-<canvas id="gameCanvas" width="1000" height="680"></canvas>
+    <div id="gameContainer">
+        <canvas id="screen" width="1000" height="680"></canvas>
+        <div id="musicToggle">🔊</div>
+        <div id="instructionText"></div>
+    </div>
 
-<div id="menu">
-  <button id="startBtn">Почати гру</button>
-  <button id="howBtn">Як грати</button>
-  <button id="exitBtn">Вийти</button>
-</div>
+    <!-- Audio elements -->
+    <audio id="bgMusic" loop volume="0.3">
+        <source src="music_maze.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="soundKey">
+        <source src="sound_button.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="soundPearl">
+        <source src="sound_pearl.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="soundDoor">
+        <source src="sound_door.ogg" type="audio/ogg">
+    </audio>
 
-<div id="howplay" style="display:none;">
-  <div style="margin-bottom:50px;">
-    <p>Як грати в лабіринт:</p>
-    <p>щоб ходити, треба натискати на стрілочки ↑ ↓ ← →</p>
-    <p>Знайди кнопку, щоб вийти з лабіринту.</p>
-    <p>Око ендермена перемістить тебе рандомно!</p>
-    <p>Підбав звук, щоб було цікавіше грати.</p>
-  </div>
-  <button id="backMenu">На головний екран</button>
-  <button id="exitBtn2">Вийти</button>
-</div>
+    <!-- Image elements -->
+    <img id="wallImg" src="Blocks.jpg" style="display:none;">
+    <img id="creperImg" src="end_pearl.png" style="display:none;">
+    <img id="keyImg" src="button.png" style="display:none;">
+    <img id="doorImg" src="door.png" style="display:none;">
+    <img id="bgImage" src="maze.jpg" style="display:none;">
+    
+    <!-- Player animation frames -->
+    <img id="player1" src="1.jpg" style="display:none;">
+    <img id="player2" src="2.jpg" style="display:none;">
+    <img id="player3" src="3.jpg" style="display:none;">
+    <img id="player4" src="4.jpg" style="display:none;">
 
-<div id="winScreen" style="display:none;">
-  <button id="winBtn">Вітаю! Ти пройшов гру!</button>
-  <button id="exitBtn3">Вийти</button>
-</div>
+    <script>
+        const canvas = document.getElementById('screen');
+        const ctx = canvas.getContext('2d');
 
-<script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const cellSize = 40;
+        // Game variables
+        const CELL_SIZE = 40;
+        const BACKGROUND_COLOR = '#000';
+        let gameState = 'menu'; // menu, howToPlay, level1, level2, win
 
-let playerImg = [];
-let wallImg = new Image();
-let doorImg = new Image();
-let keyImg = new Image();
-let creperImg = new Image();
-let backgroundImg = new Image();
+        // Maze data
+        const maze = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1],
+            [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1],
+            [1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1],
+            [1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1],
+            [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        ];
 
-let playerId = 0;
-let keys = {};
+        const maze2 = [
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1],
+            [1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 1],
+            [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1],
+            [1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 1, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, 1],
+            [1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1],
+            [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1],
+            [1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1],
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+        ];
 
-// Перший рівень
-let mazeLevels = [];
-mazeLevels[0] = [
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  [1,1,0,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
-  [1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,0,1,1,1,1,0,1],
-  [1,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1,1,1,0,1],
-  [1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,0,0,1],
-  [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1],
-  [1,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1,1,0,1,1,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,1,1,1],
-  [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,0,1,1,0,1,1,1],
-  [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,1,1],
-  [1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,0,1,1],
-  [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1],
-  [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1],
-  [1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,1,1],
-  [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-];
-// Другий рівень
-mazeLevels[1] = [
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  [1,0,1,0,0,1,0,1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,1],
-  [1,0,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1,1,0,1,1,1,1,0,1],
-  [1,0,0,1,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1,1,1,0,1],
-  [1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,1,1,0,0,1],
-  [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,1,1],
-  [1,1,0,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,0,1,1,0,1,1,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,1,1,1],
-  [1,0,1,1,1,1,0,1,1,1,1,0,1,1,1,1,1,1,0,1,1,0,1,1,1],
-  [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,1,0,1,0,0,0,1,1],
-  [1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1,0,1,1],
-  [1,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,1],
-  [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1],
-  [1,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,1,1,0,1,1],
-  [1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-];
+        // Game state
+        let currentMaze = maze;
+        let playerX = 1, playerY = 1;
+        let keyExists = false;
+        let keyPosition = [];
+        let doorPosition = [];
+        let creperPosition = [];
+        let playerAnimationIndex = 0;
+        let gameClock = 0;
+        let musicEnabled = true;
 
-let currentLevel = 0;
-let playerXLevel = 1, playerYLevel = 1;
-let keyExistsLevel = false;
-let freeCellsLevel = [];
+        // Player images
+        const playerImages = [
+            document.getElementById('player1'),
+            document.getElementById('player2'),
+            document.getElementById('player3'),
+            document.getElementById('player4')
+        ];
 
-function getFreeCells(m){ 
-  let free = [];
-  for(let y=0;y<m.length;y++){
-    for(let x=0;x<m[0].length;x++){
-      if(m[y][x]===0) free.push([x,y]);
-    }
-  }
-  return free;
-}
+        // Helper functions
+        function getFreeCells(mazeData) {
+            let cells = [];
+            for (let y = 0; y < mazeData.length; y++) {
+                for (let x = 0; x < mazeData[y].length; x++) {
+                    if (mazeData[y][x] === 0) {
+                        cells.push([x, y]);
+                    }
+                }
+            }
+            return cells;
+        }
 
-let keyPositionLevel, doorPositionLevel, creperPositionLevel;
+        function randomChoice(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
 
-function initLevel(level){
-  let maze = mazeLevels[level];
-  freeCellsLevel = getFreeCells(maze);
-  keyExistsLevel = false;
-  keyPositionLevel = freeCellsLevel[Math.floor(Math.random()* (freeCellsLevel.length-1))];
-  doorPositionLevel = freeCellsLevel[freeCellsLevel.length-1];
-  creperPositionLevel = freeCellsLevel[Math.floor(Math.random()*freeCellsLevel.length)];
-  playerXLevel = 1; playerYLevel = 1;
-}
+        function initLevel(mazeData) {
+            currentMaze = mazeData;
+            playerX = 1;
+            playerY = 1;
+            keyExists = false;
+            
+            const free = getFreeCells(mazeData);
+            keyPosition = randomChoice(free.slice(0, -1));
+            doorPosition = free[free.length - 1];
+            creperPosition = free[90] || randomChoice(free);
+            playerAnimationIndex = 0;
+        }
 
-// Контроль клавіш
-document.addEventListener('keydown', e=>keys[e.key]=true);
-document.addEventListener('keyup', e=>keys[e.key]=false);
+        function drawButton(text, color, x, y, w, h) {
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, w, h);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, x + w / 2, y + h / 2);
+        }
 
-// Головний цикл рівня
-function gameLoopLevel(){
-  let maze = mazeLevels[currentLevel];
-  if(keys['ArrowLeft'] && playerXLevel>0 && maze[playerYLevel][playerXLevel-1]===0) playerXLevel--;
-  if(keys['ArrowRight'] && playerXLevel<maze[0].length-1 && maze[playerYLevel][playerXLevel+1]===0) playerXLevel++;
-  if(keys['ArrowUp'] && playerYLevel>0 && maze[playerYLevel-1][playerXLevel]===0) playerYLevel--;
-  if(keys['ArrowDown'] && playerYLevel<maze.length-1 && maze[playerYLevel+1][playerXLevel]===0) playerYLevel++;
+        function drawMaze() {
+            ctx.fillStyle = BACKGROUND_COLOR;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Око ендермена
-  if(playerXLevel===creperPositionLevel[0] && playerYLevel===creperPositionLevel[1]){
-    let r = freeCellsLevel[Math.floor(Math.random()*freeCellsLevel.length)];
-    playerXLevel = r[0]; playerYLevel = r[1];
-    soundPearl.play();
-  }
+            // Draw background image if available
+            const bgImg = document.getElementById('bgImage');
+            if (bgImg.complete && bgImg.naturalHeight !== 0) {
+                ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+            }
 
-  // Ключ
-  if(!keyExistsLevel){
-    if(playerXLevel===keyPositionLevel[0] && playerYLevel===keyPositionLevel[1]){
-      keyExistsLevel = true;
-      soundKey.play();
-    }
-  }
+            const wallImg = document.getElementById('wallImg');
+            if (wallImg.complete && wallImg.naturalHeight !== 0) {
+                for (let y = 0; y < currentMaze.length; y++) {
+                    for (let x = 0; x < currentMaze[0].length; x++) {
+                        if (currentMaze[y][x] === 1) {
+                            ctx.drawImage(wallImg, x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        }
+                    }
+                }
+            } else {
+                for (let y = 0; y < currentMaze.length; y++) {
+                    for (let x = 0; x < currentMaze[0].length; x++) {
+                        if (currentMaze[y][x] === 1) {
+                            ctx.fillStyle = '#333333';
+                            ctx.fillRect(x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                        }
+                    }
+                }
+            }
+        }
 
-  // Двері
-  if(keyExistsLevel && playerXLevel===doorPositionLevel[0] && playerYLevel===doorPositionLevel[1]){
-    soundDoor.play();
-    currentLevel++;
-    if(currentLevel>=mazeLevels.length){
-      showWinScreen();
-      return;
-    } else {
-      initLevel(currentLevel);
-    }
-  }
+        function drawGameElements() {
+            // Draw door
+            const doorImg = document.getElementById('doorImg');
+            if (doorImg.complete && doorImg.naturalHeight !== 0) {
+                ctx.drawImage(doorImg, doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            } else {
+                ctx.fillStyle = '#00ff00';
+                ctx.fillRect(doorPosition[0] * CELL_SIZE, doorPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
 
-  drawLevel();
-  requestAnimationFrame(gameLoopLevel);
-}
+            // Draw key if not collected
+            if (!keyExists) {
+                const keyImg = document.getElementById('keyImg');
+                if (keyImg.complete && keyImg.naturalHeight !== 0) {
+                    ctx.drawImage(keyImg, keyPosition[0] * CELL_SIZE, keyPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                } else {
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fillRect(keyPosition[0] * CELL_SIZE, keyPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                }
+            }
 
-function drawLevel(){
-  let maze = mazeLevels[currentLevel];
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  for(let y=0;y<maze.length;y++){
-    for(let x=0;x<maze[0].length;x++){
-      if(maze[y][x]===1){
-        ctx.drawImage(wallImg,x*cellSize,y*cellSize,cellSize,cellSize);
-      }
-    }
-  }
-  if(!keyExistsLevel) ctx.drawImage(keyImg,keyPositionLevel[0]*cellSize,keyPositionLevel[1]*cellSize,cellSize,cellSize);
-  ctx.drawImage(doorImg,doorPositionLevel[0]*cellSize,doorPositionLevel[1]*cellSize,cellSize,cellSize);
-  ctx.drawImage(creperImg,creperPositionLevel[0]*cellSize,creperPositionLevel[1]*cellSize,cellSize,cellSize);
-  ctx.drawImage(playerImg[playerId],playerXLevel*cellSize,playerYLevel*cellSize,cellSize,cellSize);
-  playerId = (playerId+1)%playerImg.length;
-}
+            // Draw creeper
+            const creperImg = document.getElementById('creperImg');
+            if (creperImg.complete && creperImg.naturalHeight !== 0) {
+                ctx.drawImage(creperImg, creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            } else {
+                ctx.fillStyle = '#ff66ff';
+                ctx.fillRect(creperPosition[0] * CELL_SIZE, creperPosition[1] * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
 
-// Меню
-document.getElementById('startBtn').onclick = ()=>{
-  document.getElementById('menu').style.display='none';
-  currentLevel=0;
-  initLevel(currentLevel);
-  gameLoopLevel();
-};
-document.getElementById('howBtn').onclick = ()=>{
-  document.getElementById('menu').style.display='none';
-  document.getElementById('howplay').style.display='flex';
-};
-document.getElementById('backMenu').onclick = ()=>{
-  document.getElementById('howplay').style.display='none';
-  document.getElementById('menu').style.display='flex';
-};
-document.getElementById('exitBtn').onclick = ()=>window.close();
-document.getElementById('exitBtn2').onclick = ()=>window.close();
-document.getElementById('exitBtn3').onclick = ()=>window.close();
+            // Draw player
+            const playerImg = playerImages[playerAnimationIndex % playerImages.length];
+            if (playerImg.complete && playerImg.naturalHeight !== 0) {
+                ctx.drawImage(playerImg, playerX * CELL_SIZE, playerY * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            } else {
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(playerX * CELL_SIZE, playerY * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+            }
+        }
 
-function showWinScreen(){
-  document.getElementById('winScreen').style.display='flex';
-}
-</script>
+        function updateGame() {
+            // Check collision with creeper
+            if (playerX === creperPosition[0] && playerY === creperPosition[1]) {
+                const free = getFreeCells(currentMaze);
+                [playerX, playerY] = randomChoice(free);
+                playSound('soundPearl');
+            }
+
+            // Check if key collected
+            if (!keyExists && playerX === keyPosition[0] && playerY === keyPosition[1]) {
+                keyExists = true;
+                playSound('soundKey');
+            }
+
+            // Check if reached door
+            if (keyExists && playerX === doorPosition[0] && playerY === doorPosition[1]) {
+                return 'win';
+            }
+
+            playerAnimationIndex++;
+            gameClock++;
+            return null;
+        }
+
+        function playSound(soundId) {
+            const sound = document.getElementById(soundId);
+            if (sound) {
+                sound.currentTime = 0;
+                sound.play().catch(e => console.log('Sound play failed:', e));
+            }
+        }
+
+        function toggleMusic() {
+            const bgMusic = document.getElementById('bgMusic');
+            musicEnabled = !musicEnabled;
+            if (musicEnabled) {
+                bgMusic.play().catch(e => console.log('Music play failed:', e));
+                document.getElementById('musicToggle').textContent = '🔊';
+            } else {
+                bgMusic.pause();
+                document.getElementById('musicToggle').textContent = '🔇';
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => {
+            if (gameState !== 'level1' && gameState !== 'level2') return;
+
+            const key = e.key.toLowerCase();
+            if (key === 'arrowleft' && playerX > 0 && currentMaze[playerY][playerX - 1] === 0) {
+                playerX--;
+            } else if (key === 'arrowright' && playerX < currentMaze[0].length - 1 && currentMaze[playerY][playerX + 1] === 0) {
+                playerX++;
+            } else if (key === 'arrowup' && playerY > 0 && currentMaze[playerY - 1][playerX] === 0) {
+                playerY--;
+            } else if (key === 'arrowdown' && playerY < currentMaze.length - 1 && currentMaze[playerY + 1][playerX] === 0) {
+                playerY++;
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+            if (gameState === 'menu') {
+                if (x >= 150 && x <= 850 && y >= 150 && y <= 300) {
+                    gameState = 'level1';
+                    initLevel(maze);
+                    playSound('soundDoor');
+                    playGame();
+                } else if (x >= 150 && x <= 850 && y >= 450 && y <= 550) {
+                    gameState = 'howToPlay';
+                } else if (x >= 150 && x <= 850 && y >= 300 && y <= 450) {
+                    alert('До побачення!');
+                    gameState = 'menu';
+                }
+            } else if (gameState === 'howToPlay') {
+                if (x >= 180 && x <= 780 && y >= 400 && y <= 500) {
+                    gameState = 'menu';
+                } else if (x >= 180 && x <= 780 && y >= 550 && y <= 650) {
+                    alert('До побачення!');
+                }
+            } else if (gameState === 'win') {
+                if (x >= 150 && x <= 850 && y >= 200 && y <= 300) {
+                    gameState = 'menu';
+                } else if (x >= 150 && x <= 850 && y >= 350 && y <= 450) {
+                    alert('До побачення!');
+                }
+            }
+        });
+
+        document.getElementById('musicToggle').addEventListener('click', toggleMusic);
+
+        function drawMenu() {
+            ctx.fillStyle = BACKGROUND_COLOR;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const bgImg = document.getElementById('bgImage');
+            if (bgImg.complete && bgImg.naturalHeight !== 0) {
+                ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawButton('Почати гру', '#0000c8', 150, 150, 700, 100);
+            drawButton('Як грати', '#00c800', 150, 450, 700, 100);
+            drawButton('Вийти', '#c80000', 150, 300, 700, 100);
+        }
+
+        function drawInstructions() {
+            ctx.fillStyle = BACKGROUND_COLOR;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const bgImg = document.getElementById('bgImage');
+            if (bgImg.complete && bgImg.naturalHeight !== 0) {
+                ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'left';
+            const instructions = [
+                'Як грати в лабіринт:',
+                'Щоб ходити, натискай на стрілочки ↑ ↓ ← →',
+                'Знайди кнопку щоб вийти з лабіринту',
+                'Око ендермена перемістить тебе рандомно!',
+                'Підбав звук, щоб було цікавіше грати'
+            ];
+
+            let y = 100;
+            for (let line of instructions) {
+                ctx.fillText(line, 50, y);
+                y += 50;
+            }
+
+            drawButton('На головний екран', '#009600', 150, 400, 700, 100);
+            drawButton('Вийти', '#c80000', 150, 550, 700, 100);
+        }
+
+        function drawWin() {
+            ctx.fillStyle = BACKGROUND_COLOR;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const bgImg = document.getElementById('bgImage');
+            if (bgImg.complete && bgImg.naturalHeight !== 0) {
+                ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+            }
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            drawButton('Вітаю! Ти пройшов гру!', '#009600', 150, 150, 700, 100);
+            drawButton('До головного меню', '#0000c8', 150, 300, 700, 100);
+            drawButton('Вийти', '#c80000', 150, 450, 700, 100);
+        }
+
+        function playGame() {
+            const gameLoop = setInterval(() => {
+                if (gameState !== 'level1' && gameState !== 'level2') {
+                    clearInterval(gameLoop);
+                    return;
+                }
+
+                drawMaze();
+                drawGameElements();
+
+                const result = updateGame();
+                if (result === 'win') {
+                    clearInterval(gameLoop);
+                    gameState = 'win';
+                    playSound('soundDoor');
+                }
+            }, 1000 / 15); // 15 FPS
+        }
+
+        // Main game loop
+        function mainLoop() {
+            if (gameState === 'menu') {
+                drawMenu();
+            } else if (gameState === 'howToPlay') {
+                drawInstructions();
+            } else if (gameState === 'win') {
+                drawWin();
+            } else if (gameState === 'level1' || gameState === 'level2') {
+                // Game is being played
+            }
+
+            requestAnimationFrame(mainLoop);
+        }
+
+        // Start background music
+        document.addEventListener('click', () => {
+            const bgMusic = document.getElementById('bgMusic');
+            if (bgMusic.paused && musicEnabled) {
+                bgMusic.play().catch(e => console.log('Music play failed:', e));
+            }
+        }, { once: true });
+
+        mainLoop();
+    </script>
 </body>
 </html>
