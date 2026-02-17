@@ -116,9 +116,10 @@
     <!-- Image elements -->
     <img id="wallImg" src="Blocks.jpg" style="display:none;">
     <img id="creperImg" src="end_pearl.png" style="display:none;">
-    <img id="keyImg" src="button.png" style="display:none;">
-    <img id="doorImg" src="door.png" style="display:none;">
+    <img id="keyImg" src="button.jpg" style="display:none;">
+    <img id="doorImg" src="door.jpg" style="display:none;">
     <img id="bgImage" src="maze.jpg" style="display:none;">
+    <img id="bgImage3" src="maze_3.jpg" style="display:none;">
     
     <!-- Player animation frames -->
     <img id="player1" src="1.jpg" style="display:none;">
@@ -422,7 +423,7 @@
             ctx.fillStyle = BACKGROUND_COLOR;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const bgImg = document.getElementById('bgImage');
+            const bgImg = document.getElementById('bgImage3');
             if (bgImg.complete && bgImg.naturalHeight !== 0) {
                 ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
             }
